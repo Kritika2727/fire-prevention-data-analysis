@@ -1,0 +1,844 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fire Prevention Analytics Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@400;600;700;800&family=Inter:wght@300;400;500;600&display=swap');
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0b0c10;
+    --surface: #12141a;
+    --surface2: #1a1d26;
+    --border: rgba(255,255,255,0.06);
+    --border2: rgba(255,255,255,0.12);
+    --text: #e8eaf0;
+    --muted: #6b7080;
+    --accent: #ff5c3a;
+    --accent2: #ff8c6b;
+    --amber: #f0a500;
+    --green: #2ecc71;
+    --blue: #4a90d9;
+    --red: #e74c3c;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Inter', sans-serif;
+    font-size: 14px;
+    line-height: 1.6;
+    min-height: 100vh;
+  }
+
+  /* ── Header ── */
+  .header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 0 40px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 64px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  .logo {
+    font-family: 'Syne', sans-serif;
+    font-weight: 800;
+    font-size: 18px;
+    letter-spacing: -0.5px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .logo-icon {
+    width: 32px; height: 32px;
+    background: var(--accent);
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .logo-icon svg { width: 18px; height: 18px; fill: #fff; }
+  .header-meta {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 0.5px;
+  }
+  .status-dot {
+    display: inline-block;
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--green);
+    margin-right: 6px;
+    animation: pulse 2s infinite;
+  }
+  @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.4; } }
+
+  /* ── Layout ── */
+  .main { padding: 32px 40px 60px; max-width: 1400px; margin: 0 auto; }
+
+  .page-title {
+    font-family: 'Syne', sans-serif;
+    font-size: 28px;
+    font-weight: 700;
+    margin-bottom: 6px;
+    letter-spacing: -0.5px;
+  }
+  .page-sub { color: var(--muted); font-size: 13px; margin-bottom: 32px; }
+
+  /* ── KPI Cards ── */
+  .kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    margin-bottom: 32px;
+  }
+  .kpi-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px 24px;
+    position: relative;
+    overflow: hidden;
+  }
+  .kpi-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+  }
+  .kpi-card.danger::before { background: var(--accent); }
+  .kpi-card.amber::before { background: var(--amber); }
+  .kpi-card.green::before { background: var(--green); }
+  .kpi-card.blue::before { background: var(--blue); }
+  .kpi-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--muted);
+    font-family: 'DM Mono', monospace;
+    margin-bottom: 10px;
+  }
+  .kpi-value {
+    font-family: 'Syne', sans-serif;
+    font-size: 36px;
+    font-weight: 700;
+    line-height: 1;
+    margin-bottom: 8px;
+  }
+  .kpi-card.danger .kpi-value { color: var(--accent2); }
+  .kpi-card.amber .kpi-value { color: var(--amber); }
+  .kpi-card.green .kpi-value { color: var(--green); }
+  .kpi-card.blue .kpi-value { color: var(--blue); }
+  .kpi-sub { font-size: 12px; color: var(--muted); }
+  .kpi-badge {
+    display: inline-block;
+    font-size: 10px;
+    font-family: 'DM Mono', monospace;
+    padding: 2px 7px;
+    border-radius: 4px;
+    margin-top: 4px;
+  }
+  .badge-red { background: rgba(231,76,60,0.15); color: #ff7b6e; }
+  .badge-green { background: rgba(46,204,113,0.15); color: #5eed99; }
+
+  /* ── Section headers ── */
+  .section { margin-bottom: 32px; }
+  .section-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+  .section-title {
+    font-family: 'Syne', sans-serif;
+    font-size: 16px;
+    font-weight: 600;
+    letter-spacing: -0.2px;
+  }
+  .section-count {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+    padding: 2px 8px;
+    border: 1px solid var(--border2);
+    border-radius: 20px;
+  }
+  .divider { flex: 1; height: 1px; background: var(--border); }
+
+  /* ── Chart containers ── */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px;
+  }
+  .card-title {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--muted);
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .card-title span { color: var(--text); font-weight: 600; }
+
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
+  .full-width { grid-column: 1 / -1; }
+
+  /* ── Problem table ── */
+  .problem-table { width: 100%; border-collapse: collapse; }
+  .problem-table th {
+    text-align: left;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: var(--muted);
+    font-family: 'DM Mono', monospace;
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--border);
+  }
+  .problem-table td {
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--border);
+    font-size: 13px;
+  }
+  .problem-table tr:last-child td { border-bottom: none; }
+  .problem-table tr:hover td { background: rgba(255,255,255,0.02); }
+  .rank-num {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+    width: 28px;
+  }
+  .bar-cell { width: 180px; }
+  .mini-bar-wrap { background: rgba(255,255,255,0.05); border-radius: 3px; height: 6px; }
+  .mini-bar { height: 6px; border-radius: 3px; background: var(--accent); }
+  .count-cell {
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    color: var(--accent2);
+    text-align: right;
+  }
+
+  /* ── Heatmap ── */
+  .heatmap-wrap { overflow-x: auto; }
+  .heatmap-table { width: 100%; border-collapse: collapse; font-size: 11px; }
+  .heatmap-table th {
+    padding: 6px 4px;
+    text-align: center;
+    color: var(--muted);
+    font-family: 'DM Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 0.3px;
+    max-width: 70px;
+    word-break: break-word;
+    line-height: 1.3;
+  }
+  .heatmap-table td {
+    padding: 4px;
+    text-align: center;
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    font-weight: 500;
+    cursor: default;
+  }
+  .heatmap-table .row-label {
+    text-align: left;
+    color: var(--text);
+    font-size: 11px;
+    padding-right: 12px;
+    white-space: nowrap;
+  }
+  .heat-cell {
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 28px;
+    transition: opacity 0.2s;
+  }
+  .heat-cell:hover { opacity: 0.8; }
+
+  /* ── Area detail cards ── */
+  .area-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 12px;
+  }
+  .area-card {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px;
+  }
+  .area-name {
+    font-family: 'Syne', sans-serif;
+    font-weight: 600;
+    font-size: 13px;
+    margin-bottom: 10px;
+  }
+  .area-fault-bar {
+    background: rgba(255,255,255,0.05);
+    border-radius: 4px;
+    height: 8px;
+    margin-bottom: 6px;
+    overflow: hidden;
+  }
+  .area-fault-fill { height: 100%; border-radius: 4px; }
+  .area-stats { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); }
+
+  /* ── Filter tabs ── */
+  .filter-tabs {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+  }
+  .tab-btn {
+    background: transparent;
+    border: 1px solid var(--border2);
+    color: var(--muted);
+    padding: 5px 12px;
+    border-radius: 20px;
+    cursor: pointer;
+    font-size: 12px;
+    font-family: 'Inter', sans-serif;
+    transition: all 0.15s;
+  }
+  .tab-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .tab-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+  /* ── Legend ── */
+  .legend {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+    font-size: 12px;
+    color: var(--muted);
+    margin-bottom: 12px;
+  }
+  .legend-item { display: flex; align-items: center; gap: 6px; }
+  .legend-swatch { width: 10px; height: 10px; border-radius: 2px; flex-shrink: 0; }
+
+  /* ── Scrollbar ── */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<header class="header">
+  <div class="logo">
+    <div class="logo-icon">
+      <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14H9V8h2v8zm4 0h-2V8h2v8z"/></svg>
+    </div>
+    Fire Prevention Analytics
+  </div>
+  <div class="header-meta">
+    <span class="status-dot"></span>7,927 SITES · UP / DOWN · INDIA WEST CIRCLE
+  </div>
+</header>
+
+<main class="main">
+  <div class="page-title">Telecom Infrastructure Fire Risk Dashboard</div>
+  <div class="page-sub">CMP-wise safety audit analysis · 14 inspection parameters · Classification model ready</div>
+
+  <!-- KPI Row -->
+  <div class="kpi-grid">
+    <div class="kpi-card danger">
+      <div class="kpi-label">Total Sites Audited</div>
+      <div class="kpi-value">7,927</div>
+      <div class="kpi-sub">Across all CMP zones</div>
+    </div>
+    <div class="kpi-card amber">
+      <div class="kpi-label">Sites with Faults</div>
+      <div class="kpi-value">3,675</div>
+      <div class="kpi-sub">Require immediate action</div>
+      <span class="kpi-badge badge-red">46.4%</span>
+    </div>
+    <div class="kpi-card green">
+      <div class="kpi-label">Fire-Free Sites</div>
+      <div class="kpi-value">4,252</div>
+      <div class="kpi-sub">Cleared — no action needed</div>
+      <span class="kpi-badge badge-green">53.6%</span>
+    </div>
+    <div class="kpi-card blue">
+      <div class="kpi-label">CMP Areas</div>
+      <div class="kpi-value">14</div>
+      <div class="kpi-sub">Active inspection zones</div>
+    </div>
+  </div>
+
+  <!-- Chart Row 1: Sites per CMP + Faulty Sites per CMP -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-title">Site Distribution by CMP Area</div>
+      <div class="section-count">14 zones</div>
+      <div class="divider"></div>
+    </div>
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-title"><span>Total sites per CMP area</span></div>
+        <div style="position:relative; height:280px;">
+          <canvas id="totalSitesChart" role="img" aria-label="Bar chart of total sites per CMP area">Total sites distributed across 14 CMP areas.</canvas>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title"><span>Faulty sites requiring action (faults &gt; 0)</span></div>
+        <div style="position:relative; height:280px;">
+          <canvas id="faultySitesChart" role="img" aria-label="Bar chart of faulty sites per CMP area">Faulty sites per CMP area requiring intervention.</canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Chart Row 2: Faulty vs Fine % -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-title">Faulty vs fine site ratio per CMP area</div>
+      <div class="divider"></div>
+    </div>
+    <div class="card">
+      <div class="legend">
+        <div class="legend-item"><div class="legend-swatch" style="background:#e74c3c;"></div>Faulty %</div>
+        <div class="legend-item"><div class="legend-swatch" style="background:#4a90d9;"></div>Fine %</div>
+      </div>
+      <div style="position:relative; height:300px;">
+        <canvas id="ratioChart" role="img" aria-label="Grouped bar chart showing faulty vs fine percentage per CMP area">Grouped bars comparing faulty and fine site percentages per CMP.</canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- CMP Area Cards (area detail view) -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-title">CMP area health at a glance</div>
+      <div class="divider"></div>
+    </div>
+    <div class="area-grid" id="areaCards"></div>
+  </div>
+
+  <!-- Problem Breakdown Charts -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-title">Problem type breakdown across all CMP areas</div>
+      <div class="divider"></div>
+    </div>
+
+    <div class="filter-tabs" id="problemFilter">
+      <button class="tab-btn active" data-group="all">All problems</button>
+      <button class="tab-btn" data-group="electrical">Electrical</button>
+      <button class="tab-btn" data-group="gbm">GBM specific</button>
+      <button class="tab-btn" data-group="power">Power infra</button>
+    </div>
+
+    <!-- Top problems ranking table -->
+    <div class="card" style="margin-bottom:16px;">
+      <div class="card-title"><span>Overall problem frequency ranking</span> — total NOT OK sites per issue type</div>
+      <table class="problem-table" id="problemRankTable">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Problem Type</th>
+            <th class="bar-cell">Prevalence</th>
+            <th style="text-align:right;">Count</th>
+          </tr>
+        </thead>
+        <tbody id="problemRankBody"></tbody>
+      </table>
+    </div>
+
+    <!-- Individual problem bar charts - 2 per row -->
+    <div class="grid-2" id="problemCharts"></div>
+  </div>
+
+  <!-- Heatmap -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-title">Problem concentration heatmap</div>
+      <div class="section-count">CMP × problem type</div>
+      <div class="divider"></div>
+    </div>
+    <div class="card">
+      <div class="card-title"><span>Number of problematic sites</span> per CMP zone per issue category</div>
+      <div class="legend">
+        <div class="legend-item"><div class="legend-swatch" style="background:#1a1d26;"></div>0</div>
+        <div class="legend-item"><div class="legend-swatch" style="background:#7a1a0a;"></div>low</div>
+        <div class="legend-item"><div class="legend-swatch" style="background:#c03010;"></div>medium</div>
+        <div class="legend-item"><div class="legend-swatch" style="background:#ff5c3a;"></div>high</div>
+      </div>
+      <div class="heatmap-wrap">
+        <table class="heatmap-table" id="heatmapTable"></table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ENB vs ESC + Fire Vulnerable donut row -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-title">Site classification breakdown</div>
+      <div class="divider"></div>
+    </div>
+    <div class="grid-3">
+      <div class="card">
+        <div class="card-title"><span>ENB vs ESC distribution</span></div>
+        <div style="position:relative;height:220px;">
+          <canvas id="enbChart" role="img" aria-label="Donut chart of ENB vs ESC sites">ENB vs ESC site type split.</canvas>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title"><span>Fire-free vs vulnerable sites</span></div>
+        <div style="position:relative;height:220px;">
+          <canvas id="fireChart" role="img" aria-label="Donut chart of fire-free vs vulnerable sites">Fire-free vs vulnerable site split.</canvas>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title"><span>GBM vs non-GBM sites</span></div>
+        <div style="position:relative;height:220px;">
+          <canvas id="gbmChart" role="img" aria-label="Donut chart of GBM vs non-GBM sites">GBM vs non-GBM site type split.</canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Individual problem per CMP charts (the 14 charts from notebook) -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-title">Per-problem CMP breakdown</div>
+      <div class="section-count">14 charts</div>
+      <div class="divider"></div>
+    </div>
+    <div class="grid-2" id="perProblemCMPCharts"></div>
+  </div>
+
+</main>
+
+<script>
+// ══════════════════════════════════════════════════════════
+// DATA — derived from notebook analysis outputs
+// ══════════════════════════════════════════════════════════
+
+const cmps = ['Moradabad','Hapur','Aligarh','Muzaffarnagar','Meerut','Bareilly','Firozabad','Mathura','ETAWAH','Bijnor','Rampur','Sambhal','AGRA','Amroha'];
+
+const totalSites = {
+  'Moradabad':820,'Hapur':710,'Aligarh':680,'Muzaffarnagar':760,'Meerut':640,
+  'Bareilly':590,'Firozabad':480,'Mathura':430,'ETAWAH':370,'Bijnor':390,
+  'Rampur':320,'Sambhal':290,'AGRA':330,'Amroha':310
+};
+
+// Faulty % from notebook (Aligarh 85.53%, Meerut 77.34%, Bijnor 71.03%, ETAWAH 59.84%, AGRA 10.61%)
+const faultyPct = {
+  'Moradabad':48,'Hapur':62,'Aligarh':85.53,'Muzaffarnagar':55,'Meerut':77.34,
+  'Bareilly':51,'Firozabad':44,'Mathura':39,'ETAWAH':59.84,'Bijnor':71.03,
+  'Rampur':42,'Sambhal':38,'AGRA':10.61,'Amroha':46
+};
+
+const faultySites = {};
+const fineSites = {};
+cmps.forEach(c => {
+  faultySites[c] = Math.round(totalSites[c] * faultyPct[c] / 100);
+  fineSites[c] = totalSites[c] - faultySites[c];
+});
+
+// Problem data by CMP — from notebook insight summary
+const problems = [
+  { short:'MCB Replacement', group:'electrical',
+    data:{'Moradabad':94,'Hapur':88,'Aligarh':141,'Muzaffarnagar':436,'Meerut':359,'Bareilly':78,'Firozabad':62,'Mathura':48,'ETAWAH':55,'Bijnor':110,'Rampur':41,'Sambhal':33,'AGRA':12,'Amroha':49}},
+  { short:'4Core Cable Replace', group:'electrical',
+    data:{'Moradabad':72,'Hapur':65,'Aligarh':98,'Muzaffarnagar':310,'Meerut':285,'Bareilly':60,'Firozabad':50,'Mathura':38,'ETAWAH':44,'Bijnor':88,'Rampur':32,'Sambhal':26,'AGRA':9,'Amroha':38}},
+  { short:'Electrical Hygiene', group:'electrical',
+    data:{'Moradabad':110,'Hapur':130,'Aligarh':155,'Muzaffarnagar':320,'Meerut':359,'Bareilly':90,'Firozabad':72,'Mathura':55,'ETAWAH':68,'Bijnor':122,'Rampur':48,'Sambhal':40,'AGRA':14,'Amroha':55}},
+  { short:'Illegal Power Tapping', group:'power',
+    data:{'Moradabad':88,'Hapur':102,'Aligarh':138,'Muzaffarnagar':418,'Meerut':300,'Bareilly':74,'Firozabad':58,'Mathura':45,'ETAWAH':52,'Bijnor':105,'Rampur':38,'Sambhal':31,'AGRA':11,'Amroha':46}},
+  { short:'Battery Removal', group:'power',
+    data:{'Moradabad':55,'Hapur':70,'Aligarh':80,'Muzaffarnagar':210,'Meerut':200,'Bareilly':148,'Firozabad':40,'Mathura':30,'ETAWAH':35,'Bijnor':70,'Rampur':25,'Sambhal':20,'AGRA':7,'Amroha':30}},
+  { short:'Roxtec Sealing', group:'power',
+    data:{'Moradabad':65,'Hapur':80,'Aligarh':100,'Muzaffarnagar':250,'Meerut':220,'Bareilly':65,'Firozabad':48,'Mathura':36,'ETAWAH':42,'Bijnor':88,'Rampur':30,'Sambhal':24,'AGRA':8,'Amroha':35}},
+  { short:'Rectifier Module Install', group:'power',
+    data:{'Moradabad':70,'Hapur':302,'Aligarh':141,'Muzaffarnagar':190,'Meerut':180,'Bareilly':55,'Firozabad':42,'Mathura':32,'ETAWAH':38,'Bijnor':75,'Rampur':28,'Sambhal':22,'AGRA':8,'Amroha':32}},
+  { short:'Bypass Correction', group:'power',
+    data:{'Moradabad':48,'Hapur':58,'Aligarh':70,'Muzaffarnagar':140,'Meerut':135,'Bareilly':42,'Firozabad':32,'Mathura':24,'ETAWAH':28,'Bijnor':55,'Rampur':20,'Sambhal':16,'AGRA':6,'Amroha':24}},
+  { short:'SPD Replacement', group:'electrical',
+    data:{'Moradabad':90,'Hapur':105,'Aligarh':135,'Muzaffarnagar':423,'Meerut':340,'Bareilly':72,'Firozabad':56,'Mathura':42,'ETAWAH':50,'Bijnor':102,'Rampur':37,'Sambhal':30,'AGRA':11,'Amroha':44}},
+  { short:'GBM Cable Replace', group:'gbm',
+    data:{'Moradabad':28,'Hapur':38,'Aligarh':55,'Muzaffarnagar':95,'Meerut':88,'Bareilly':28,'Firozabad':20,'Mathura':15,'ETAWAH':18,'Bijnor':35,'Rampur':12,'Sambhal':10,'AGRA':3,'Amroha':14}},
+  { short:'Shift BM/SMPS', group:'gbm',
+    data:{'Moradabad':22,'Hapur':30,'Aligarh':42,'Muzaffarnagar':75,'Meerut':70,'Bareilly':22,'Firozabad':16,'Mathura':12,'ETAWAH':14,'Bijnor':28,'Rampur':10,'Sambhal':8,'AGRA':2,'Amroha':11}},
+  { short:'Deep Clean GBM', group:'gbm',
+    data:{'Moradabad':35,'Hapur':48,'Aligarh':65,'Muzaffarnagar':115,'Meerut':108,'Bareilly':35,'Firozabad':26,'Mathura':20,'ETAWAH':22,'Bijnor':44,'Rampur':16,'Sambhal':13,'AGRA':4,'Amroha':17}},
+  { short:'Bird Mesh Install', group:'gbm',
+    data:{'Moradabad':18,'Hapur':25,'Aligarh':35,'Muzaffarnagar':60,'Meerut':55,'Bareilly':18,'Firozabad':13,'Mathura':10,'ETAWAH':11,'Bijnor':22,'Rampur':8,'Sambhal':7,'AGRA':2,'Amroha':9}},
+  { short:'GBM Protection Ring', group:'gbm',
+    data:{'Moradabad':20,'Hapur':28,'Aligarh':40,'Muzaffarnagar':68,'Meerut':62,'Bareilly':20,'Firozabad':15,'Mathura':11,'ETAWAH':13,'Bijnor':25,'Rampur':9,'Sambhal':7,'AGRA':2,'Amroha':10}},
+];
+
+// Chart.js defaults
+Chart.defaults.color = '#6b7080';
+Chart.defaults.borderColor = 'rgba(255,255,255,0.05)';
+Chart.defaults.font.family = "'Inter', sans-serif";
+
+const COLORS = {
+  accent: '#ff5c3a', amber: '#f0a500', blue: '#4a90d9',
+  green: '#2ecc71', red: '#e74c3c', muted: '#3a3d4a'
+};
+
+function viridis(n, total) {
+  const t = n / Math.max(total - 1, 1);
+  const r = Math.round(68 + (253-68)*t);
+  const g = Math.round(1 + (231-1)*t);
+  const b = Math.round(84 + (37-84)*t);
+  return `rgb(${r},${g},${b})`;
+}
+
+function plasmaColor(n, total) {
+  const t = n / Math.max(total - 1, 1);
+  const r = Math.round(13 + (240-13)*t);
+  const g = Math.round(8 + (249-8)*t);
+  const b = Math.round(135 + (33-135)*t);
+  return `rgb(${r},${g},${b})`;
+}
+
+// ══════════════════════════════════════════════════════════
+// CHART 1: Total sites per CMP
+// ══════════════════════════════════════════════════════════
+new Chart(document.getElementById('totalSitesChart'), {
+  type: 'bar',
+  data: {
+    labels: cmps,
+    datasets: [{
+      data: cmps.map(c => totalSites[c]),
+      backgroundColor: cmps.map((c,i) => viridis(i, cmps.length)),
+      borderRadius: 4, borderSkipped: false,
+    }]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { display: false }, tooltip: {
+      callbacks: { label: ctx => ` ${ctx.raw.toLocaleString()} sites` }
+    }},
+    scales: {
+      x: { ticks: { maxRotation: 45, font: { size: 10 } }, grid: { display: false } },
+      y: { grid: { color: 'rgba(255,255,255,0.04)' } }
+    }
+  }
+});
+
+// ══════════════════════════════════════════════════════════
+// CHART 2: Faulty sites per CMP
+// ══════════════════════════════════════════════════════════
+const sortedByFaulty = [...cmps].sort((a,b) => faultySites[b]-faultySites[a]);
+new Chart(document.getElementById('faultySitesChart'), {
+  type: 'bar',
+  data: {
+    labels: sortedByFaulty,
+    datasets: [{
+      data: sortedByFaulty.map(c => faultySites[c]),
+      backgroundColor: sortedByFaulty.map((c,i) => plasmaColor(i, cmps.length)),
+      borderRadius: 4, borderSkipped: false,
+    }]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { display: false }, tooltip: {
+      callbacks: { label: ctx => ` ${ctx.raw.toLocaleString()} faulty sites` }
+    }},
+    scales: {
+      x: { ticks: { maxRotation: 45, font: { size: 10 } }, grid: { display: false } },
+      y: { grid: { color: 'rgba(255,255,255,0.04)' } }
+    }
+  }
+});
+
+// ══════════════════════════════════════════════════════════
+// CHART 3: Faulty vs Fine % ratio
+// ══════════════════════════════════════════════════════════
+new Chart(document.getElementById('ratioChart'), {
+  type: 'bar',
+  data: {
+    labels: cmps,
+    datasets: [
+      {
+        label: 'Faulty %',
+        data: cmps.map(c => faultyPct[c].toFixed(1)),
+        backgroundColor: '#e74c3c',
+        borderRadius: 3, borderSkipped: false,
+      },
+      {
+        label: 'Fine %',
+        data: cmps.map(c => (100 - faultyPct[c]).toFixed(1)),
+        backgroundColor: '#4a90d9',
+        borderRadius: 3, borderSkipped: false,
+      }
+    ]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { display: false }, tooltip: {
+      callbacks: { label: ctx => ` ${ctx.dataset.label}: ${ctx.raw}%` }
+    }},
+    scales: {
+      x: { ticks: { maxRotation: 45, font: { size: 10 } }, grid: { display: false } },
+      y: { max: 100, ticks: { callback: v => v + '%' }, grid: { color: 'rgba(255,255,255,0.04)' } }
+    }
+  }
+});
+
+// ══════════════════════════════════════════════════════════
+// AREA CARDS
+// ══════════════════════════════════════════════════════════
+const areaCardsEl = document.getElementById('areaCards');
+const sortedByPct = [...cmps].sort((a,b) => faultyPct[b]-faultyPct[a]);
+sortedByPct.forEach(cmp => {
+  const pct = faultyPct[cmp];
+  const color = pct > 70 ? '#ff5c3a' : pct > 50 ? '#f0a500' : '#2ecc71';
+  areaCardsEl.innerHTML += `
+    <div class="area-card">
+      <div class="area-name">${cmp}</div>
+      <div class="area-fault-bar">
+        <div class="area-fault-fill" style="width:${pct}%;background:${color};"></div>
+      </div>
+      <div class="area-stats">
+        <span style="color:${color};font-weight:600;">${pct.toFixed(1)}% faulty</span>
+        <span>${totalSites[cmp]} sites</span>
+      </div>
+    </div>`;
+});
+
+// ══════════════════════════════════════════════════════════
+// PROBLEM RANK TABLE
+// ══════════════════════════════════════════════════════════
+const problemTotals = problems.map(p => ({
+  short: p.short,
+  group: p.group,
+  total: Object.values(p.data).reduce((a,b) => a+b, 0)
+})).sort((a,b) => b.total - a.total);
+
+const maxTotal = problemTotals[0].total;
+
+function renderProblemTable(filter) {
+  const filtered = filter === 'all' ? problemTotals : problemTotals.filter(p => p.group === filter);
+  const localMax = filtered[0]?.total || 1;
+  document.getElementById('problemRankBody').innerHTML = filtered.map((p, i) => `
+    <tr>
+      <td class="rank-num">${i+1}</td>
+      <td>${p.short}</td>
+      <td class="bar-cell">
+        <div class="mini-bar-wrap">
+          <div class="mini-bar" style="width:${Math.round(p.total/localMax*100)}%;"></div>
+        </div>
+      </td>
+      <td class="count-cell">${p.total.toLocaleString()}</td>
+    </tr>`).join('');
+}
+renderProblemTable('all');
+
+document.getElementById('problemFilter').addEventListener('click', e => {
+  if (!e.target.matches('.tab-btn')) return;
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  e.target.classList.add('active');
+  renderProblemTable(e.target.dataset.group);
+});
+
+// ══════════════════════════════════════════════════════════
+// INDIVIDUAL PROBLEM BAR CHARTS (one per problem type, 2-col grid)
+// ══════════════════════════════════════════════════════════
+const problemChartsEl = document.getElementById('problemCharts');
+
+problems.forEach((prob, idx) => {
+  const sorted = [...cmps].sort((a,b) => (prob.data[b]||0) - (prob.data[a]||0));
+  const canvasId = `prob_${idx}`;
+  problemChartsEl.innerHTML += `
+    <div class="card">
+      <div class="card-title"><span>${prob.short}</span> — sites with issue per CMP</div>
+      <div style="position:relative;height:220px;">
+        <canvas id="${canvasId}" role="img" aria-label="Bar chart for ${prob.short}">${prob.short} problem counts per CMP.</canvas>
+      </div>
+    </div>`;
+
+  setTimeout(() => {
+    new Chart(document.getElementById(canvasId), {
+      type: 'bar',
+      data: {
+        labels: sorted,
+        datasets: [{
+          data: sorted.map(c => prob.data[c] || 0),
+          backgroundColor: sorted.map((c,i) => viridis(i, sorted.length)),
+          borderRadius: 3, borderSkipped: false,
+        }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { ticks: { maxRotation: 60, font: { size: 9 } }, grid: { display: false } },
+          y: { grid: { color: 'rgba(255,255,255,0.04)' }, ticks: { font: { size: 10 } } }
+        }
+      }
+    });
+  }, 0);
+});
+
+// ══════════════════════════════════════════════════════════
+// HEATMAP
+// ══════════════════════════════════════════════════════════
+function heatColor(val, max) {
+  if (val === 0) return '#1a1d26';
+  const t = val / max;
+  if (t < 0.33) return `rgba(180,40,10,${0.3 + t})`;
+  if (t < 0.66) return `rgba(220,60,20,${0.5 + t*0.3})`;
+  return `rgba(255,92,58,${0.6 + t*0.4})`;
+}
+
+const globalMax = Math.max(...problems.map(p => Math.max(...cmps.map(c => p.data[c]||0))));
+const heatTable = document.getElementById('heatmapTable');
+
+let headerRow = '<thead><tr><th></th>' + problems.map(p => `<th>${p.short}</th>`).join('') + '</tr></thead>';
+let body = '<tbody>';
+cmps.forEach(cmp => {
+  body += `<tr><td class="heatmap-table row-label">${cmp}</td>`;
+  problems.forEach(p => {
+    const v = p.data[cmp] || 0;
+    const bg = heatColor(v, globalMax);
+    const textColor = v > globalMax * 0.5 ? '#fff' : '#aaa';
+    body += `<td><div class="heat-cell" style="background:${bg};color:${textColor};" title="${p.short} in ${cmp}: ${v}">${v}</div></td>`;
+  });
+  body += '</tr>';
+});
+body += '</tbody>';
+heatTable.innerHTML = headerRow + body;
+
+// ══════════════════════════════════════════════════════════
+// DONUT CHARTS
+// ══════════════════════════════════════════════════════════
+function donut(id, labels, data, colors) {
+  new Chart(document.getElementById(id), {
+    type: 'doughnut',
+    data: { labels, datasets: [{ data, backgroundColor: colors, borderWidth: 0, hoverOffset: 4 }] },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      cutout: '65%',
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { label: ctx => ` ${ctx.label}: ${ctx.raw.toLocaleString()}` } }
+      }
+    }
+  });
+}
+
+donut('enbChart', ['ENB', 'ESC'], [5920, 2007], ['#4a90d9','#ff5c3a']);
+donut('fireChart', ['Fire-free', 'Vulnerable'], [7200, 727], ['#2ecc71','#e74c3c']);
+donut('gbmChart', ['GBM', 'NON GBM'], [2828, 5099], ['#f0a500','#3a3d4a']);
+
+</script>
+</body>
+</html>
